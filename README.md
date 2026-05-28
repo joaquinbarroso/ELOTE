@@ -41,5 +41,5 @@ Please cite this code and report any issues directly to the developer, Joaquín 
 
 Tutorials and blog post:
 
-https://joaquinbarroso.com/ELOTE
+https://joaquinbarroso.com/category/coding/ELOTE
 
