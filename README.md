@@ -12,8 +12,11 @@ ELOTE requires python3 and pandas. If run in your terminal you may need to first
 sudo apt install python3-pandas
 
 USAGE:
+
 python3 ELOTE.py myfile.log
+
 python3 ELOTE.py myfile.log --sort-f           # sort by descending values of f (oscillator strength)
+
 python3 ELOTE.py myfile.log --min-contrib 5.0  # hide transitions < 5%
 
 OUTPUT:
