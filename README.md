@@ -9,12 +9,14 @@ or Ligand-Metal Charge Transfer (LMCT). ELOTE does all this in one run from the 
 shown in the TD-DFT output. 
 
 REQUIREMENTS:
-
 ELOTE requires python3 and pandas. If run in your terminal you may need to first run:
 sudo apt install python3-pandas
 
-USAGE:
+INPUT REQUIREMENTS:
+ELOTE reads the atom list from the log file to detect metals and assign orbital character. If your TD-DFT input uses geom=check/geom=allcheck (reading geometry from a checkpoint), 
+Gaussian does not print the atom list in said log, and ELOTE cannot assign atoms (an error message will follow). Include the explicit geometry or include pop=allorbitals in a job that also prints the standard orientation. 
 
+USAGE:
 python3 ELOTE.py myfile.log
 
 python3 ELOTE.py myfile.log --sort-f           # sort by descending values of f (oscillator strength)
@@ -22,7 +24,6 @@ python3 ELOTE.py myfile.log --sort-f           # sort by descending values of f 
 python3 ELOTE.py myfile.log --min-contrib 5.0  # hide transitions < 5%
 
 OUTPUT:
-
 ELOTE displays the Excited States result from Gaussian16, but adds HOMO-n, LUMO+n, labels to each MO
 Two files are created:
 
@@ -40,6 +41,5 @@ Gaussian output, which includes proper HOMO-i, LUMO+j, labeling and percentage c
 Please cite this code and report any issues directly to the developer, Joaquín Barroso from the National Autonomous University of Mexico (UNAM).
 
 Tutorials and blog post:
-
 https://joaquinbarroso.com/category/coding/ELOTE
 
