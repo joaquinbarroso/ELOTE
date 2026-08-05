@@ -2,11 +2,10 @@
 Electron Localization of Transition Excitations - Analyzer for Gaussian TD-DFT calculations
 
 What ELOTE does:
-
 TD-DFT calculations in Gaussian yield a rather obscure output for experimentalists, who prefer a HOMO LUMO labeling to a sequential MO numbering and who wish to have a table with
 the percentage contribution of each atomic orbital (AO) to every excited state and thus ascertain whether a transition is internal ligand (IL), Metal-Ligand Charge Transfer (MLCT),
 or Ligand-Metal Charge Transfer (LMCT). ELOTE does all this in one run from the composition of atomic orbitals (pop=allorbitals) and the corresponding algebra of the CI coefficients
-shown in the TD-DFT output. 
+shown in the TD-DFT output. UPDATE Supports both closed-shell (restricted) and open-shell (unrestricted) TD-DFT calculations. 
 
 REQUIREMENTS:
 ELOTE requires python3 and pandas. If run in your terminal you may need to first run:
