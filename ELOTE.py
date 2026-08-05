@@ -37,24 +37,20 @@ class Tee:
 BANNER = r"""
 ╔══════════════════════════════════════════════════════════════════════╗
 ║                                                                      ║
-║    ███████╗██╗      ██████╗ ████████╗███████╗⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠲⠀⠀     ║
-║    ██╔════╝██║     ██╔═══██╗╚══██╔══╝██╔════╝⠛⣿⣦⡀⠀⠀⠀⠀⠀⠀⣠⠀⠀⣤⡄⠉⢀⠀⠃     ║
-║    █████╗  ██║     ██║   ██║   ██║   █████╗  ⠀⣿⣿⡿⠄⠀⣀⠐⡾⠂⠠⣶⡆⠈⠠⣶⠀⠐      ║
-║    ██╔══╝  ██║     ██║   ██║   ██║   ██╔══╝  ⠀⠛⠉⣠⡄⠹⠟⠂⠀⢾⡦⠈⠀⣶⠆⠀⠐       ║
-║    ███████╗███████╗╚██████╔╝   ██║   ███████╗⠀⢾⣆⠘⠛⣀⡀⢿⡷⠀⠀⢶⡦⠈⡀⠟⠁       ║
-║    ╚══════╝╚══════╝ ╚═════╝    ╚═╝   ╚══════╝⠀⡈⠛⣠⡀⠻⡿⠂⠀⢾⡷⠀⡀⠺⠟         ║
-║                                              ⠀⢀⡄⠻⡿⠂⡀⠺⣿⡆⠀⠘⢉⣀⣀         ║
-║                                              ⠀⠙⠿⠂⡀⠸⠿⠂⢀⣠⣴⣾⣿⣿⣿⣿⣆       ║
-║                                              ⡇⠀⠀⠈⣉⣤⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿       ║
-║                                              ⣷⠀⣾⣿⣿⣿⣿⣿⣿⣿⡿⠋⠀⠉⠻⣿⣿       ║
+║    ███████╗██╗      ██████╗ ████████╗███████╗                        ║
+║    ██╔════╝██║     ██╔═══██╗╚══██╔══╝██╔════╝                        ║
+║    █████╗  ██║     ██║   ██║   ██║   █████╗                          ║
+║    ██╔══╝  ██║     ██║   ██║   ██║   ██╔══╝                          ║
+║    ███████╗███████╗╚██████╔╝   ██║   ███████╗                        ║
+║    ╚══════╝╚══════╝ ╚═════╝    ╚═╝   ╚══════╝                        ║
 ║                                                                      ║
 ║         Electron Localization of Transition Excitations              ║
 ║                                                                      ║
 ║                           by                                         ║
 ║                   Joaquin Barroso-Flores                             ║
 ║                                                                      ║
-║   Cite as: https://github.com/joaquinbarroso/ELOTE                   ║
-║   Tutorials: https://joaquinbarroso.com/category/ELOTE               ║
+║   Cite as: github.com/joaquinbarroso/ELOTE                           ║
+║   Tutorials: https://joaquinbarroso.com/ELOTE                        ║
 ╚══════════════════════════════════════════════════════════════════════╝
 """
 
@@ -158,49 +154,54 @@ if 'TD' not in route_text and ' TD=' not in route_text.replace('TD(', 'TD='):
 # ─────────────────────────────────────────────
 #  PARSE MOLECULAR ORBITALS  (Alpha occ / Alpha vir)
 # ─────────────────────────────────────────────
-# Pattern: "Alpha occ 150 OE=-0.184 is Cu41-p=0.8112 Cu41-s=0.3890 I51-s=-0.1978"
+# Pattern (restricted):   "Alpha occ 150 OE=-0.184 is Cu41-p=0.8112 ..."
+# Pattern (unrestricted): "Alpha occ 52 ... is ..." AND "Beta  occ 50 ... is ..."
+# The spin manifold (Alpha/Beta) is captured so open-shell calcs are handled.
 MO_PATTERN = re.compile(
-    r'Alpha\s+(occ|vir)\s+(\d+)\s+OE=(-?[\d.]+)\s+is\s+(.*)'
+    r'(Alpha|Beta)\s+(occ|vir)\s+(\d+)\s+OE=(-?[\d.]+)\s+is\s+(.*)'
 )
 
-mo_data = {}   # orbital_number -> {'type': 'occ'/'vir', 'OE': float, 'contributions': str}
+# Detect unrestricted calculation (presence of Beta orbital composition lines)
+is_unrestricted = any(re.search(r'Beta\s+(occ|vir)\s+\d+\s+OE=', ln) for ln in lines)
+
+# Orbitals keyed by (number, spin); spin is 'A', 'B', or '' (restricted).
+mo_data = {}   # (num, spin) -> {'type': 'occ'/'vir', 'OE': float, 'raw': str}
 
 for line in lines:
     m = MO_PATTERN.search(line)
     if m:
-        mo_type = m.group(1)   # 'occ' or 'vir'
-        mo_num  = int(m.group(2))
-        oe      = float(m.group(3))
-        contrib_str = m.group(4).strip()
-        mo_data[mo_num] = {'type': mo_type, 'OE': oe, 'raw': contrib_str}
+        spin_word = m.group(1)
+        spin = 'A' if spin_word == 'Alpha' else 'B'
+        if not is_unrestricted:
+            spin = ''
+        mo_type = m.group(2)
+        mo_num  = int(m.group(3))
+        oe      = float(m.group(4))
+        contrib_str = m.group(5).strip()
+        mo_data[(mo_num, spin)] = {'type': mo_type, 'OE': oe, 'raw': contrib_str}
+
+# Build HOMO/LUMO labels separately per spin manifold
+mo_labels = {}
+homo_by_spin = {}
+lumo_by_spin = {}
 
 if not mo_data:
     print("WARNING: No molecular orbital data found (pop=orbitals or pop=allorbitals required).")
     print("         Orbital labels (HOMO/LUMO) will not be available.\n")
-    homo_num = None
-    lumo_num = None
-    mo_labels = {}
 else:
-    occ_orbs = sorted([n for n, v in mo_data.items() if v['type'] == 'occ'])
-    vir_orbs = sorted([n for n, v in mo_data.items() if v['type'] == 'vir'])
-
-    homo_num = occ_orbs[-1] if occ_orbs else None
-    lumo_num = vir_orbs[0]  if vir_orbs  else None
-
-    # Build label map
-    mo_labels = {}
-    if homo_num is not None:
+    spins_present = sorted({s for (_, s) in mo_data.keys()})
+    for spin in spins_present:
+        occ_orbs = sorted([n for (n, s), v in mo_data.items()
+                           if s == spin and v['type'] == 'occ'])
+        vir_orbs = sorted([n for (n, s), v in mo_data.items()
+                           if s == spin and v['type'] == 'vir'])
+        homo_by_spin[spin] = occ_orbs[-1] if occ_orbs else None
+        lumo_by_spin[spin] = vir_orbs[0]  if vir_orbs  else None
+        sp = f'({spin})' if spin else ''
         for i, n in enumerate(reversed(occ_orbs)):
-            if i == 0:
-                mo_labels[n] = 'HOMO'
-            else:
-                mo_labels[n] = f'HOMO-{i}'
-    if lumo_num is not None:
+            mo_labels[(n, spin)] = ('HOMO' + sp) if i == 0 else f'HOMO-{i}{sp}'
         for i, n in enumerate(vir_orbs):
-            if i == 0:
-                mo_labels[n] = 'LUMO'
-            else:
-                mo_labels[n] = f'LUMO+{i}'
+            mo_labels[(n, spin)] = ('LUMO' + sp) if i == 0 else f'LUMO+{i}{sp}'
 
 # ─────────────────────────────────────────────
 #  PRINT MO COMPOSITION TABLE
@@ -212,10 +213,16 @@ if mo_data:
     print("Default threshold is 10%. To decrease threshold use ThreshOrbitals=n")
     print("(n < 10) in the route section as an option for the pop keyword\n")
 
-    all_mo_nums = sorted(mo_data.keys())
-    for mo_num in all_mo_nums:
-        info  = mo_data[mo_num]
-        label = mo_labels.get(mo_num, f'MO{mo_num}')
+    if is_unrestricted:
+        print("Unrestricted (open-shell) calculation detected: alpha (A) and beta (B)")
+        print("orbital manifolds are labeled separately.\n")
+
+    # Order: alpha manifold first then beta, each by orbital number
+    all_keys = sorted(mo_data.keys(), key=lambda k: (k[1], k[0]))
+    for key in all_keys:
+        mo_num, spin = key
+        info  = mo_data[key]
+        label = mo_labels.get(key, f'MO{mo_num}')
         oe    = info['OE']
         raw   = info['raw']
 
@@ -233,21 +240,19 @@ if mo_data:
                 contrib_out.append(part)
         contrib_str = ' '.join(contrib_out)
 
-        # Align HOMO/LUMO labels nicely
-        if 'HOMO' in label or 'LUMO' in label:
-            pad = '\t\t' if label in ('HOMO', 'LUMO') else '\t'
-        else:
-            pad = '\t'
-
-        print(f'{label}{pad}({mo_num}) OE={oe:.3f} percentage is\t{contrib_str}')
+        num_label = f'{mo_num}{spin}' if spin else f'{mo_num}'
+        print(f'{label}\t({num_label}) OE={oe:.3f} percentage is\t{contrib_str}')
 
     print()
 
 # ─────────────────────────────────────────────
-#  HELPER: get label for an orbital number
+#  HELPER: get label for an orbital (num, spin) key
 # ─────────────────────────────────────────────
-def get_label(n):
-    return mo_labels.get(n, str(n))
+def get_label(n, spin=''):
+    label = mo_labels.get((n, spin))
+    if label is not None:
+        return label
+    return f'{n}{spin}' if spin else str(n)
 
 
 # ─────────────────────────────────────────────
@@ -301,11 +306,12 @@ metal_atoms = {el for el in atom_elements if ELEMENT_Z.get(el, 0) in METAL_Z}
 # ─────────────────────────────────────────────
 #  BUILD SET OF METAL-CENTERED ORBITALS
 # ─────────────────────────────────────────────
-def is_metal_orbital(mo_num):
-    """Return True if the MO has significant metal character (largest single contribution)."""
-    if mo_num not in mo_data:
+def is_metal_orbital(mo_num, spin=''):
+    """Return True if the MO has >50% metal character. Keyed by (num, spin)."""
+    key = (mo_num, spin)
+    if key not in mo_data:
         return False
-    raw = mo_data[mo_num]['raw']
+    raw = mo_data[key]['raw']
     parts = raw.split()
     metal_contrib = 0.0
     total_contrib  = 0.0
@@ -330,8 +336,13 @@ def is_metal_orbital(mo_num):
 ES_HEADER_RE = re.compile(
     r'Excited State\s+(\d+):\s+(\S+)\s+([\d.]+)\s+eV\s+([\d.]+)\s+nm\s+f=([\d.]+)\s+<S\*\*2>=([\d.]+)'
 )
-# Transition line: "    150 ->151         0.51251"
-TRANS_RE = re.compile(r'^\s*(\d+)\s*->\s*(\d+)\s+(-?[\d.eE]+)\s*$')
+# Transition lines. Restricted:   "    150 ->151      0.51251"
+# Unrestricted:                    "    48B -> 50B     0.67064"
+# Both excitation (->) and de-excitation (<-) arrows appear; orbital numbers
+# may carry an A (alpha) or B (beta) spin suffix in open-shell calculations.
+TRANS_RE = re.compile(
+    r'^\s*(\d+)([AB]?)\s*(->|<-)\s*(\d+)([AB]?)\s+(-?[\d.eE]+)\s*$'
+)
 
 excited_states = []
 i = 0
@@ -350,10 +361,17 @@ while i < len(lines):
         while j < len(lines):
             t = TRANS_RE.match(lines[j])
             if t:
-                from_mo = int(t.group(1))
-                to_mo   = int(t.group(2))
-                coeff   = float(t.group(3))
-                transitions.append((from_mo, to_mo, coeff))
+                from_mo   = int(t.group(1))
+                from_spin = t.group(2) if is_unrestricted else ''
+                arrow     = t.group(3)
+                to_mo     = int(t.group(4))
+                to_spin   = t.group(5) if is_unrestricted else ''
+                coeff     = float(t.group(6))
+                # For a de-excitation (<-) the physical donor/acceptor are swapped
+                if arrow == '<-':
+                    from_mo, to_mo = to_mo, from_mo
+                    from_spin, to_spin = to_spin, from_spin
+                transitions.append((from_mo, from_spin, to_mo, to_spin, coeff))
                 j += 1
             else:
                 # Stop if line doesn't match and isn't blank
@@ -391,13 +409,12 @@ def spin_mult(sym):
     return ''
 
 
-def assign_band(from_mo, to_mo):
+def assign_band(from_mo, from_spin, to_mo, to_spin):
     """Assign MLCT/LMCT/IL character based on metal orbital membership."""
     if not has_metals:
         return ''
-    from_metal = is_metal_orbital(from_mo)
-    to_metal   = is_metal_orbital(to_mo)
-    mult = ''  # we add multiplicity later per excited state
+    from_metal = is_metal_orbital(from_mo, from_spin)
+    to_metal   = is_metal_orbital(to_mo, to_spin)
     if from_metal and not to_metal:
         return 'MLCT'
     elif not from_metal and to_metal:
@@ -425,7 +442,7 @@ for es in excited_states:
         continue
 
     # Normalization constant B
-    B = sum(c**2 for _, _, c in trans)
+    B = sum(c**2 for _, _, _, _, c in trans)
     if B == 0:
         continue
 
@@ -434,41 +451,36 @@ for es in excited_states:
 
     mult_label = spin_mult(sym)
     total_pct = 0.0
-    transition_strs = []
-    assignment_strs = []
 
-    for from_mo, to_mo, coeff in trans:
+    for from_mo, from_spin, to_mo, to_spin, coeff in trans:
         pct = (coeff**2) / B * 100.0
         total_pct += pct
 
         if pct < args.min_contrib:
             continue
 
-        from_lbl = get_label(from_mo)
-        to_lbl   = get_label(to_mo)
-        band     = assign_band(from_mo, to_mo)
+        from_lbl = get_label(from_mo, from_spin)
+        to_lbl   = get_label(to_mo, to_spin)
+        band     = assign_band(from_mo, from_spin, to_mo, to_spin)
         full_band = f'{mult_label}{band}' if band else ''
 
-        print(f"  {from_mo} -> {to_mo}   {from_lbl} -> {to_lbl:<14}  {pct:.2f} %"
+        from_num = f'{from_mo}{from_spin}' if from_spin else f'{from_mo}'
+        to_num   = f'{to_mo}{to_spin}' if to_spin else f'{to_mo}'
+        print(f"  {from_num} -> {to_num}   {from_lbl} -> {to_lbl:<16}  {pct:.2f} %"
               + (f"  [{full_band}]" if full_band else ''))
-
-        transition_strs.append(f'{from_lbl} -> {to_lbl} ({pct:.0f})')
-        if has_metals:
-            assignment_strs.append(f'{mult_label}{band}' if band else '–')
 
     print(f"  {'─'*50}")
     print(f"  TOTAL Contribution: {total_pct:.2f} %")
 
     # Build the Transition string for the table (top contributions, sorted by pct)
-    # Collect all contributions above min_contrib
     contrib_for_row = []
-    for from_mo, to_mo, coeff in trans:
+    for from_mo, from_spin, to_mo, to_spin, coeff in trans:
         pct = (coeff**2) / B * 100.0
         if pct < args.min_contrib:
             continue
-        from_lbl = get_label(from_mo)
-        to_lbl   = get_label(to_mo)
-        band     = assign_band(from_mo, to_mo)
+        from_lbl = get_label(from_mo, from_spin)
+        to_lbl   = get_label(to_mo, to_spin)
+        band     = assign_band(from_mo, from_spin, to_mo, to_spin)
         full_band = f'{mult_label}{band}' if band else ''
         contrib_for_row.append((pct, from_lbl, to_lbl, full_band))
 
